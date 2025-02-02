@@ -7229,7 +7229,7 @@ int main() {
     }
 
     getch();
-
+    //getch();
     endwin();  // End ncurses mode
     return 0;
 }
