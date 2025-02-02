@@ -7230,6 +7230,8 @@ int main() {
 
     getch();
     //getch();
+    //git push origin main
+
     endwin();  // End ncurses mode
     return 0;
 }
