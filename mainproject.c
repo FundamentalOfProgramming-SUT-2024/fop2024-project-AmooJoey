@@ -8,6 +8,9 @@
 #include <sys/types.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
+#include <locale.h>
+#include <stdio.h>
+#include <math.h>
 
 
 // terminal: 
@@ -15,6 +18,18 @@
 #define x 184
 #define y 45
 #define z 4
+
+int directory_exists(const char *path) {
+    struct stat info;
+
+    if (stat(path, &info) != 0) {
+        return 0; // Directory does not exist
+    } else if (info.st_mode & S_IFDIR) {
+        return 1; // Directory exists
+    } else {
+        return 0; // Path exists but is not a directory
+    }
+}
 
 void printFirstPage() {
     int height, width;
@@ -219,7 +234,6 @@ void addUser(){
     int start_x = (width - win_width) / 2;
 
     char c[] = {"Please choose Username, set an e-mail and create password"};
-
        for (int i = 0; i < strlen(c); i++) {
         mvwprintw(stdscr, 1, i + (width - strlen(c)) / 2, "%c", c[i]);
         refresh();
@@ -503,6 +517,22 @@ FILE *Name, *Email, *Password, *EmailPassword;
   fclose(Password);
   fclose(EmailPassword);
 
+    char passwordPath[1000] = {"/home/ahmadreza/ROGUE/saving/"};
+    strcat(passwordPath, name);
+
+    if (mkdir(passwordPath, 0777) != 0) 
+        perror("Error creating directory");
+
+    strcat(passwordPath, "/pass.txt");
+
+    // mvprintw(1, 1, "%s", passwordPath);
+    // refresh();
+    // getch();
+    FILE *fpass = fopen(passwordPath, "w");
+
+    fprintf(fpass, "%s\n%s\n", emailPassword, password);
+
+    fclose(fpass);
 
     mvwprintw(win, 25, (win_width - 30) / 2, "-----");
     refresh();
@@ -664,6 +694,11 @@ while (fgets(line, sizeof(line), namesFile)) {
     while (i < 29) {
     ch = wgetch(win);
 
+    if(ch == '~'){
+
+        goto rocoveryPass;
+    }
+
     if (ch == KEY_BACKSPACE || ch == 127) {  // Handle backspace
         if (i > 0) {
             i--;
@@ -681,7 +716,7 @@ while (fgets(line, sizeof(line), namesFile)) {
     } else if(ch == '\n') {
         if (strcmp(userPassword, password) == 0) {
           //  mvprintw(1,1,"%d", j);
-            break;
+            goto end;
         }
     }
 
@@ -703,6 +738,7 @@ while (fgets(line, sizeof(line), namesFile)) {
 mvwprintw(win, 12, (win_width - 8) / 2, "--------");
 wrefresh(win);
 
+
 for(int i = 0; i < strlen(name); i++){
     mvwprintw(win, 13, (win_width - strlen(name)) / 2 + i, "%c", name[i]);
     wrefresh(win);
@@ -717,6 +753,89 @@ for(int i = 0; i < strlen(password); i++){
     usleep(20000);
 }
 
+    rocoveryPass:
+
+    char please[100] = {"Please Enter your e-mail password:"};
+    mvwprintw(win, 10, (win_width - strlen(please)) / 2, "                            ");
+
+    wattron(win, A_REVERSE);
+
+    for(int i = 0; i < strlen(please); i++){
+
+        mvwprintw(win, 10, (win_width - strlen(please)) / 2 + i, "%c", please[i]);
+        wrefresh(win);
+        usleep(20000);
+
+    }
+
+    wattroff(win, A_REVERSE);
+
+    char passwordPath[1000] = {"/home/ahmadreza/ROGUE/saving/"};
+    strcat(passwordPath, name);
+    strcat(passwordPath, "/pass.txt");
+
+    // mvprintw(1, 1, "%s\n 1", passwordPath);
+    // refresh();
+    // getch();
+
+    FILE *fpass = fopen(passwordPath, "r");
+
+    char usrpass[100], exmp, email_pass[100], NewPass[100];
+    fscanf(fpass, "%s", email_pass);
+    fscanf(fpass, "%c", &exmp);
+    fscanf(fpass, "%s", usrpass);
+
+
+    // mvprintw(1, 1, "/%s/     /%s/", usrpass, email_pass);
+    // refresh();
+    // getch();
+
+    fclose(fpass);
+
+    while (i < 29) {
+    ch = wgetch(win);
+
+    if (ch == KEY_BACKSPACE || ch == 127) {  // Handle backspace
+        if (i > 0) {
+            i--;
+            mvwprintw(win, 12, (win_width - 30) / 2 + i, " ");  // Clear the character
+            wrefresh(win);
+            NewPass[i] = '\0';
+        }
+    } else if (ch != '\n') {
+        echo();
+        NewPass[i++] = ch;
+        NewPass[i] = '\0';
+        mvwprintw(win, 12, (win_width - 30) / 2 + i - 1, "%c", ch);  // Display character
+        wrefresh(win);
+        noecho();
+    } else if(ch == '\n') {
+        if (strcmp(email_pass, NewPass) == 0) {
+          //  mvprintw(1,1,"%d", j);
+            break;
+        }
+    }
+
+
+    if(strcmp(email_pass, NewPass) == 0){
+        mvwprintw(win, 14,(win_width - 30) / 2 , "                        ");
+        refresh();
+        wrefresh(win);
+    }
+
+      if(strcmp(email_pass, NewPass) != 0){
+        mvwprintw(win, 14,(win_width - 30) / 2 , "password is not correct!");
+        refresh();
+        wrefresh(win);
+    }
+
+}
+
+    mvwprintw(win, 16, (win_width - 17) / 2, "your password is:");
+    mvwprintw(win, 17, (win_width - strlen(usrpass)) / 2, "%s", usrpass);
+    wrefresh(win);
+
+    end:
     strcpy(user, name);
 
     getch();
@@ -809,7 +928,72 @@ void guest(char *user){
 
 }
 
-void settingMenu(FILE **savedGame, char name[], int isGuest, int *newGame, int *newDifficulty, int *newCharacter, int *newColor, int *music){
+
+void display_scores(WINDOW *win, char **names, int *scores, int *xps, int start, int win_width, int d, int dates[20][3], int year, int month, int day) {
+
+    if(start == 0){
+    mvwprintw(win, 2 + d, 2, "\xF0\x9F\xA5\x87");
+    mvwprintw(win, 4 + d, 2, "\xf0\x9f\xa5\x88");
+    mvwprintw(win, 6 + d, 2, "\xf0\x9f\xa5\x89");
+
+    for (int i = 3; i < 10; i++) {
+        mvwprintw(win, (i + 1) * 2 + d, 2, "  ");
+        mvwprintw(win, (i + 1) * 2 + d, 2, "%d", i + 1);
+    }
+
+    for (int i = 0; i <10; i++) {
+        mvwprintw(win, (i + 1) * 2 + d, 10, "                                       ");
+        mvwprintw(win, (i + 1) * 2 + d + 1, 10, "                                       ");
+
+        if(i < 3){
+
+            wattron(win, COLOR_PAIR(2));
+        }
+        mvwprintw(win, (i + 1) * 2 + d, 10, "%s", names[i]);
+
+        if(i < 3){
+
+            wattroff(win, COLOR_PAIR(2));
+        }
+
+        wattron(win, COLOR_PAIR(6));
+        mvwprintw(win, ((i + 1) * 2) + d, 24, "score: %d", scores[i]);
+        wattroff(win, COLOR_PAIR(6));
+
+        mvwprintw(win, ((i + 1) * 2) + d, 36, "xp:%d", xps[i]);
+        mvwprintw(win, (i + 1) * 2 + d + 1, 10, "%d-%d-%d   --> %d days", dates[i][0], dates[i][1], dates[i][2], (year - dates[i][0]) * 365 + (month - dates[i][1]) * 30 + (day - dates[i][2]) + 1);
+
+    if(i < 3){
+
+        mvwprintw(win, ((i + 1) * 2) + d, 41, "master");
+    }
+        //mvwprintw(win, (i + 1) * 2, 10, "Name:%s  Score:%d  Xp:%d", names[i], scores[i], xps[i]);
+    }
+
+    } else{
+
+        for (int i = 0; i < 10; i++) {
+        mvwprintw(win, (i + 1) * 2 + d, 2, "  ");
+        mvwprintw(win, (i + 1) * 2 + d, 2, "%d", i + 10);
+    }
+
+        for (int i = 10; i <20; i++) {
+        mvwprintw(win, (i - 9) * 2 + d, 10, "                                       ");
+        mvwprintw(win, (i + 1) * 2 + d + 1, 10, "                                       ");
+        mvwprintw(win, (i - 9) * 2 + d, 10, "%s", names[i]);
+                wattron(win, COLOR_PAIR(6));
+        mvwprintw(win, ((i - 9) * 2) + d, 24, "score:%d", scores[i]);
+        wattroff(win, COLOR_PAIR(6));
+
+        mvwprintw(win, ((i - 9) * 2) + d, 36, "xp:%d", xps[i]);
+        mvwprintw(win, (i - 9) * 2 + d + 1, 10, "%d-%d-%d   --> %d days", dates[i][0], dates[i][1], dates[i][2], (year - dates[i][0]) * 365 + (month - dates[i][1]) * 30 + (day - dates[i][2]) + 1);
+        //mvwprintw(win, (i - 9) * 2, 10, "Name:%s  Score:%d  Xp:%d", names[i], scores[i], xps[i]);
+    }
+    }
+}
+
+
+void settingMenu(FILE **savedGame, char name[], int isGuest, int *newGame, int *newDifficulty, int *newCharacter, int *newColor, int *music, int year, int month , int day){
 
     cbreak();
     keypad(stdscr, TRUE);
@@ -870,7 +1054,7 @@ void settingMenu(FILE **savedGame, char name[], int isGuest, int *newGame, int *
 
     WINDOW *win3;
 
-        int win3_height = 40;
+        int win3_height = 28;
         int win3_width = 50;
         int win3_start_y = 2;
         int win3_start_x = 120;
@@ -879,6 +1063,68 @@ void settingMenu(FILE **savedGame, char name[], int isGuest, int *newGame, int *
         box(win3, 0, 0);
         refresh();
         wrefresh(win3);
+
+        char mm[100] = {"SCORE-BOARD"};
+
+        mvwprintw(win3, 1, (win3_width - strlen(mm)) / 2, "%s", mm);
+
+        wrefresh(win3);
+
+
+    int scores[20];
+    char *names[20];
+    int xps[20];
+    char buffer[100];
+    int dates[20][3];
+
+        for (int i = 0; i < 20; i++) {
+            names[i] = (char *)malloc(100 * sizeof(char));
+        }
+
+     FILE   *fscore = fopen("/home/ahmadreza/ROGUE/scoreboard/score.txt", "r");
+     FILE   *fname = fopen("/home/ahmadreza/ROGUE/scoreboard/names.txt", "r");
+     FILE  *fxp = fopen("/home/ahmadreza/ROGUE/scoreboard/xp.txt", "r");
+     FILE  *fdate = fopen("/home/ahmadreza/ROGUE/scoreboard/date.txt", "r");
+
+    for (int i = 0; i < 20 ; i++){
+         fscanf(fdate, "%d %d %d", &dates[i][0], &dates[i][1], &dates[i][2]);
+    }
+    fclose(fdate);
+    for (int i = 0; i < 20 && fscanf(fscore, "%d", &scores[i]) == 1; i++);
+    fclose(fscore);
+    for (int i = 0; i < 20 && fscanf(fxp, "%d", &xps[i]) == 1; i++);
+    fclose(fxp);
+
+    for (int i = 0; i < 20 && fgets(buffer, 100, fname) != NULL; i++) {
+            buffer[strcspn(buffer, "\n")] = '\0';
+            strcpy(names[i], buffer);
+        }
+    fclose(fname);
+
+
+
+    int zoj = 1;
+    int c;
+
+    while (1) {
+        c = wgetch(win4);
+
+        if(c == 'q'){
+            break;
+        }
+
+        zoj = (zoj + 1) % 2;
+
+        if (zoj == 0) {
+            display_scores(win3, names, scores, xps, 0, win3_width, 3, dates, year, month, day);
+        } else {
+            display_scores(win3, names, scores, xps, 10, win3_width, 3, dates, year, month, day);
+        }
+
+        refresh();
+        wrefresh(win3);
+
+    }
 
     if(*savedGame == NULL){
 
@@ -1648,7 +1894,7 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
         *person_j = dar_1_1_j;
     }
 
-    for(int i = 0; i < 12 + (difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1 + 3 + 3 + 5; i++){
 
         while(1){
 
@@ -1667,9 +1913,45 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 }  else if (i < 6){
 
                     map[k][jjj][iii] = 'b';//black golg!
-                } else{
+                } else if (i < 12 + (difficulty - 1) * 3){
 
                     map[k][jjj][iii] = 'T';
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    if(k == 1){
+
+                        map[k][jjj][iii] = 's';
+                    }
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'P';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4){
+
+                    map[k][jjj][iii] = 'F';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3){
+
+                    map[k][jjj][iii] = 'G';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 1){
+
+                    map[k][jjj][iii] = 'A';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 2){
+
+                    map[k][jjj][iii] = 'M';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 3){
+
+                    map[k][jjj][iii] = 'D';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 4){
+
+                    map[k][jjj][iii] = 'U';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 5){
+
+                    map[k][jjj][iii] = 'O';
                 }
 
                 break;
@@ -1677,12 +1959,31 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
 
 
 
-        }
 
-        
+
+
+        }
 
     }
 
+        int w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end1_i - start1_i + 1)) + start1_i;
+            int jjj = (rand() % (end1_j - start1_j + 1)) + start1_j;
+
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
 
 
     //########################################################################################## otagh 1
@@ -1776,7 +2077,7 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
 
     }
 
-    for(int i = 0; i < 12 +(difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3 + 5; i++){
 
         while(1){
 
@@ -1795,9 +2096,39 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 } else if(i < 6){
 
                     map[k][jjj][iii] = 'b';//black gold
-                } else{
+                } else if (i < 12 +(difficulty - 1) * 3){
 
-                    map[k][jjj][iii] = 'T';
+                    map[k][jjj][iii] = 'T';//trap
+                } else if(i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'P';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'F';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'G';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 1){
+
+                    map[k][jjj][iii] = 'A';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 2){
+
+                    map[k][jjj][iii] = 'M';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3){
+
+                    map[k][jjj][iii] = 'D';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 4){
+
+                    map[k][jjj][iii] = 'U';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 5){
+
+                    map[k][jjj][iii] = 'O';
                 }
 
                 break;
@@ -1808,6 +2139,25 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
         }
 
     }
+
+        w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end2_i - start2_i + 1)) + start2_i;
+            int jjj = (rand() % (end2_j - start2_j + 1)) + start2_j;
+            
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
 
     //############################################################################################# otagh 2
     //#############################################################################################
@@ -1873,7 +2223,7 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
 
 
 
-    for(int i = 0; i < 12 +(difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1 + 3 + 3 + 5; i++){
 
         while(1){
 
@@ -1892,9 +2242,45 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 } else if(i < 6){
 
                     map[k][jjj][iii] = 'b';//black gold
-                } else{
+                } else if (i < 12 +(difficulty - 1) * 3){
 
                     map[k][jjj][iii] = 'T';
+                }  else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    if(k == 2){
+
+                        map[k][jjj][iii] = 's';
+                    }
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'P';
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4){
+
+                    map[k][jjj][iii] = 'F';
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3){
+
+                    map[k][jjj][iii] = 'G';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 1){
+
+                    map[k][jjj][iii] = 'A';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 2){
+
+                    map[k][jjj][iii] = 'M';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 3){
+
+                    map[k][jjj][iii] = 'D';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 4){
+
+                    map[k][jjj][iii] = 'U';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3 + 5){
+
+                    map[k][jjj][iii] = 'O';
                 }
 
                 break;
@@ -1905,6 +2291,25 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
         }
 
     }
+
+        w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end3_i - start3_i + 1)) + start3_i;
+            int jjj = (rand() % (end3_j - start3_j + 1)) + start3_j;
+            
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
 
     //#####################################################################################otagh 3
     //#####################################################################################
@@ -1981,7 +2386,7 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
     }
 
 
-    for(int i = 0; i < 12 +(difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3; i++){
 
         while(1){
 
@@ -2000,9 +2405,24 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 } else if (i < 6){
 
                     map[k][jjj][iii] = 'b';//black gold
-                } else{
+                } else if(i < 12 +(difficulty - 1) * 3){
 
                     map[k][jjj][iii] = 'T';//trap
+                } else if(i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'P';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'F';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3){
+
+                    map[k][jjj][iii] = 'G';
                 }
 
                 break;
@@ -2013,6 +2433,25 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
         }
 
     }
+
+        w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end4_i - start4_i + 1)) + start4_i;
+            int jjj = (rand() % (end4_j - start4_j + 1)) + start4_j;
+            
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
 
     //#################################################################################### otagh4
     //####################################################################################
@@ -2092,7 +2531,7 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
     map[k][dar_5_4_j][dar_5_4_i] = '+';
 
 
-    for(int i = 0; i < 12 +(difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1 + 3 + 3; i++){
 
         while(1){
 
@@ -2111,9 +2550,30 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 } else if(i < 6){
 
                     map[k][jjj][iii] = 'b';//black gold
-                } else{
+                } else if (i < 12 +(difficulty - 1) * 3){
 
                     map[k][jjj][iii] = 'T';//trap
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    if(k == 3){
+
+                        map[k][jjj][iii] = 's';
+                    }
+                }  else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'P';
+                } else if (i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4){
+
+                    map[k][jjj][iii] = 'F';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 4 + 3){
+
+                    map[k][jjj][iii] = 'G';
                 }
 
                 break;
@@ -2125,6 +2585,24 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
 
     }
 
+        w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end5_i - start5_i + 1)) + start5_i;
+            int jjj = (rand() % (end5_j - start5_j + 1)) + start5_j;
+            
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
     //###############################################################################otagh5
     //###############################################################################
 
@@ -2201,12 +2679,12 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
     }
 
 
-    for(int i = 0; i < 12 +(difficulty - 1) * 3; i++){
+    for(int i = 0; i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3; i++){
 
         while(1){
 
-            int iii = (rand() % (end6_i - start6_i)) + start6_i;
-            int jjj = (rand() % (end6_j - start6_j)) + start6_j;
+            int iii = (rand() % (end6_i - start6_i + 1)) + start6_i;
+            int jjj = (rand() % (end6_j - start6_j + 1)) + start6_j;
 
             if(map[k][jjj][iii] == '.'){
 
@@ -2220,9 +2698,24 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
                 } else if(i < 6){
 
                     map[k][jjj][iii] = 'b';//black gold
-                } else{
+                } else if(i < 12 +(difficulty - 1) * 3){
 
                     map[k][jjj][iii] = 'T';//trap
+                }else if(i < 12 +(difficulty - 1) * 3 + ( 6 - difficulty) * 2){
+
+                    map[k][jjj][iii] = 'f';
+                }else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 1){
+
+                    map[k][jjj][iii] = 'H';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 2){
+
+                    map[k][jjj][iii] = 'P';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3){
+
+                    map[k][jjj][iii] = 'F';
+                } else if(i < 12 + (difficulty - 1) * 3 + ( 6 - difficulty) * 2 + 3 + 3){
+
+                    map[k][jjj][iii] = 'G';
                 }
 
                 break;
@@ -2233,6 +2726,25 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
         }
 
     }
+
+        w = 0;
+
+        while(1){
+
+            int iii = (rand() % (end6_i - start6_i)) + start6_i;
+            int jjj = (rand() % (end6_j - start6_j)) + start6_j;
+            
+            if(map[k][jjj][iii] == '-' || map[k][jjj][iii] == '|'){
+
+                map[k][jjj][iii] = '=';
+
+                w++;
+            }
+
+            if(w == 2){
+                break;
+            }
+        }
 
     //############################################################################ otagh6
     //############################################################################
@@ -2518,13 +3030,214 @@ void initScreen(char map[z][y][x], int difficulty, int *person_i, int *person_j,
 
     }
 
+    int zoj = 0;
+
+    for(int i = 121; i < 129; i++){
+
+        for(int j = 20; j < 27; j++){
+
+            if(i == 121 || i == 128){
+
+                map[3][j][i] = '|';
+
+                continue;
+            }
+
+            if(j == 20 || j == 26){
+
+                map[3][j][i] = '-';
+                
+                continue;
+            }
+            int random;
+
+            random = (rand() % (10));
+
+            if(random <= 5){
+
+            if(zoj % 2 == 0)
+            map[3][j][i] = 'b'; 
+            else
+            map[3][j][i] = 'g';
+            zoj++;
+            }
+            else
+            map[3][j][i] = 'T';
+        }
+
+    }
+
+    map[3][23][128] = '+';
+
+    int i = 129;
+
+    while(map[3][23][i] != '#'){
+
+        map[3][23][i++] = '#';
+    }
+
+
+    for(int i = 121 - 55; i < 129 - 55; i++){
+
+        for(int j = 20; j < 27; j++){
+
+            if(i == 121 - 55|| i == 128 - 55){
+
+                map[1][j][i] = '|';
+
+                continue;
+            }
+
+            if(j == 20 || j == 26){
+
+                map[1][j][i] = '-';
+                
+                continue;
+            }
+            int random;
+
+            random = (rand() % (10));
+
+            if(random <= 5){
+
+            if(zoj % 2 == 0)
+            map[1][j][i] = 'T'; 
+            else
+            map[1][j][i] = 'H';
+            zoj++;
+            }
+            else
+            map[1][j][i] = 'P';
+        }
+
+    }
+
+    map[1][23][128 - 55] = '+';
+
+    i = 129 - 55;
+
+    while(map[1][23][i] != '#'){
+
+        map[1][23][i++] = '#';
+    }
+    
     
 
 
 }
-//save_matrix_to_file(map, name,difficulty, color, character, *gold, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
 
-void save_matrix_to_file(char matrix[z][y][x], char *name,int difficulty, int color, int charact, int gold, char c, int blackGold, int health, int music, int person_i,int person_j,int person_i_1,int person_j_1,int person_i_2,int person_j_2,int person_i_3,int person_j_3) {
+
+void saveScoreboard(char *name, int score, int xp, int sYear, int sMonth, int sDay) {
+    int scores[20];
+    char *names[20];
+    int xps[20];
+    int dates[20][3];
+    char buffer[100];
+
+    FILE *fdate = fopen("/home/ahmadreza/ROGUE/scoreboard/date.txt", "r");
+    if (fdate == NULL) {
+        perror("Error opening score file");
+        return;
+    }
+
+    for (int i = 0; i < 20; i++){
+        fscanf(fdate, "%d %d %d", &dates[i][0], &dates[i][1], &dates[i][2]);
+    }
+    fclose(fdate);
+
+    FILE *fscore = fopen("/home/ahmadreza/ROGUE/scoreboard/score.txt", "r");
+    if (fscore == NULL) {
+        perror("Error opening score file");
+        return;
+    }
+
+    for (int i = 0; i < 20 && fscanf(fscore, "%d", &scores[i]) == 1; i++);
+    fclose(fscore);
+
+    if (score > scores[19]) {
+        scores[19] = score;
+
+        FILE *fname = fopen("/home/ahmadreza/ROGUE/scoreboard/names.txt", "r");
+        if (fname == NULL) {
+            perror("Error opening names file");
+            return;
+        }
+
+        for (int i = 0; i < 20; i++) {
+            names[i] = (char *)malloc(100 * sizeof(char));
+        }
+
+        for (int i = 0; i < 20 && fgets(buffer, 100, fname) != NULL; i++) {
+            buffer[strcspn(buffer, "\n")] = '\0';
+            strcpy(names[i], buffer);
+        }
+        fclose(fname);
+
+        FILE *fxp = fopen("/home/ahmadreza/ROGUE/scoreboard/xp.txt", "r");
+        if (fxp == NULL) {
+            perror("Error opening XP file");
+            return;
+        }
+
+        for (int i = 0; i < 20 && fscanf(fxp, "%d", &xps[i]) == 1; i++);
+        fclose(fxp);
+
+        names[19] = strdup(name);
+        xps[19] = xp;
+
+        int xx = 19;
+        while (scores[xx] > scores[xx - 1] && x > 0) {
+            int tempScore = scores[xx];
+            scores[xx] = scores[xx - 1];
+            scores[xx - 1] = tempScore;
+
+            int tempXp = xps[xx];
+            xps[xx] = xps[xx - 1];
+            xps[xx - 1] = tempXp;
+
+            char *tempName = names[xx];
+            names[xx] = names[xx - 1];
+            names[xx - 1] = tempName;
+
+            int dt = dates[xx][0];
+            dates[xx][0] = dates[xx - 1][0];
+            dates[xx - 1][0] = dt;
+            dt = dates[xx][1];
+            dates[xx][1] = dates[xx - 1][1];
+            dates[xx - 1][1] = dt;
+
+            dt = dates[xx][2];
+            dates[xx][2] = dates[xx - 1][2];
+            dates[xx - 1][2] = dt;
+            xx--;
+        }
+
+        fscore = fopen("/home/ahmadreza/ROGUE/scoreboard/score.txt", "w");
+        fname = fopen("/home/ahmadreza/ROGUE/scoreboard/names.txt", "w");
+        fxp = fopen("/home/ahmadreza/ROGUE/scoreboard/xp.txt", "w");
+        fdate = fopen("/home/ahmadreza/ROGUE/scoreboard/date.txt", "w");
+
+        if (fscore == NULL || fname == NULL || fxp == NULL) {
+            perror("Error opening files for writing");
+            return;
+        }
+
+        for (int i = 0; i < 20; i++) {
+            fprintf(fname, "%s\n", names[i]);
+            fprintf(fxp, "%d\n", xps[i]);
+            fprintf(fscore, "%d\n", scores[i]);
+            fprintf(fdate, "%d %d %d\n", dates[i][0], dates[i][1], dates[i][2]);
+            free(names[i]);
+        }
+
+        fclose(fname);
+        fclose(fscore);
+        fclose(fxp);
+        fclose(fdate);
+    }
+}
+
+void save_matrix_to_file(char matrix[z][y][x], char *name,int difficulty, int color, int charact, int gold, char c, int blackGold, int health, int music, int food, int person_i,int person_j,int person_i_1,int person_j_1,int person_i_2,int person_j_2,int person_i_3,int person_j_3) {
     clear();
     // mvprintw(1,1,"saving...");
     refresh();
@@ -2572,6 +3285,7 @@ void save_matrix_to_file(char matrix[z][y][x], char *name,int difficulty, int co
     fprintf(dataFile, "%d\n", blackGold);
     fprintf(dataFile, "%d\n", health);
     fprintf(dataFile, "%d\n", music);
+    fprintf(dataFile, "%d\n", food);
     fprintf(dataFile, "%d\n", person_i);
     fprintf(dataFile, "%d\n", person_j);
     fprintf(dataFile, "%d\n", person_i_1);
@@ -2632,6 +3346,7 @@ void save_matrix_to_file(char matrix[z][y][x], char *name,int difficulty, int co
     fprintf(dataFile, "%d\n", blackGold);
     fprintf(dataFile, "%d\n", health);
     fprintf(dataFile, "%d\n", music);
+    fprintf(dataFile, "%d\n", food);
     fprintf(dataFile, "%d\n", person_i);
     fprintf(dataFile, "%d\n", person_j);
     fprintf(dataFile, "%d\n", person_i_1);
@@ -2681,7 +3396,7 @@ void save_matrix_to_file(char matrix[z][y][x], char *name,int difficulty, int co
 
 }
 
-int loading_game(char *name, int *difficulty, int *charact, int *color, int *gold, int *blackGold, int *health, int*music, char map[z][y][x],char *c, int *floor,int *person_i,int *person_j,int *person_i_1,int *person_j_1,int *person_i_2,int *person_j_2,int *person_i_3,int *person_j_3){
+int loading_game(char *name, int *difficulty, int *charact, int *color, int *gold, int *blackGold, int *health, int*music, int *food, char map[z][y][x],char *c, int *floor,int *person_i,int *person_j,int *person_i_1,int *person_j_1,int *person_i_2,int *person_j_2,int *person_i_3,int *person_j_3){
 
     clear();
     refresh();
@@ -2708,6 +3423,7 @@ int loading_game(char *name, int *difficulty, int *charact, int *color, int *gol
     fscanf(dataFile, "%d", blackGold);
     fscanf(dataFile, "%d", health);
     fscanf(dataFile, "%d", music);
+    fscanf(dataFile, "%d", food);
     fscanf(dataFile, "%d", person_i);
     fscanf(dataFile, "%d", person_j);
     fscanf(dataFile, "%d", person_i_1);
@@ -2793,7 +3509,7 @@ int loading_game(char *name, int *difficulty, int *charact, int *color, int *gol
 
 
 
-int game(int is_guest, int newGame, int difficulty, int music, int charact, int color, char *name, int *gold, int *blackGold, int *health){
+int game (int is_guest, int newGame, int difficulty, int music, int charact, int color, char *name, int *gold, int *blackGold, int *health, int *food, int *year, int *month, int *day){
 
     srand(time(0)); 
 
@@ -2805,6 +3521,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     (*gold) = 0;
     (*health) = 100;
+    (*food) = 100;
     int floor;
 
     int person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3;
@@ -2817,7 +3534,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
     } else {
 
         newGame = 0;
-        loading_game(name, &difficulty, &charact, &color, gold, blackGold, health, &music, map, &c, &floor, &person_i, &person_j, &person_i_1, &person_j_1, &person_i_2, &person_j_2, &person_i_3, &person_j_3);
+        loading_game(name, &difficulty, &charact, &color, gold, blackGold, health, &music, food, map, &c, &floor, &person_i, &person_j, &person_i_1, &person_j_1, &person_i_2, &person_j_2, &person_i_3, &person_j_3);
 
     }
 
@@ -2840,10 +3557,16 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
     char message_5[100] = {" Revenge Is A Dish Best Eaten.mp3"};
     char message_6[100] = {"Rod_Stewart_Young_Turks.mp3"};
     char message_7[100] = {"The_Evil_Within_Soundtrack.mp3"};
-
+    char khalife[1000] = {"/home/ahmadreza/ROGUE/musics/khalife.mp3"};
     char musicc[1000] = {"/home/ahmadreza/ROGUE/musics/"};
 
-    Mix_Music *musiccc = NULL;
+    Mix_Music *musiccc = NULL, *khmusic = NULL;
+
+    khmusic = Mix_LoadMUS(khalife);
+
+    // Mix_PlayMusic(khmusic, -1);
+
+    // getch();
 
     switch (music) {
         case 0:
@@ -2885,7 +3608,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     Mix_PlayMusic(musiccc, -1);
 
+    int check_music = 1;
+
     char character;
+
 
     switch(charact){
 
@@ -2922,6 +3648,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     floor0:
 
+
     map[0][person_j][person_i] = character;
 
         for(int j = 0; j < y; j++){
@@ -2949,12 +3676,61 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[0][j][i] != 'T'){
-                mvprintw(j, i,"%c",  map[0][j][i]);
-                } else{
+        switch(map[0][j][i]) {
+             case 'T':
+             mvprintw(j, i, ".");
+             break;
 
-                    mvprintw(j, i,".");
-                }
+             case 'S':
+             mvprintw(j, i, "#");
+             break;
+             case 'k':
+             attron(COLOR_PAIR(1));
+             mvprintw(j, i, "\u25B2");
+             attroff(COLOR_PAIR(1));
+             break; // Missing break statement added here
+
+             case 'g':
+             mvprintw(j, i, "$");
+             break;
+
+             case 'f':
+                attron(COLOR_PAIR(3));
+             mvprintw(j, i, "%c", map[0][j][i]);
+                attroff(COLOR_PAIR(3));
+             break;
+
+             case 'H':
+             attron(COLOR_PAIR(5));
+             mvprintw(j, i, "\u2600");
+             attroff(COLOR_PAIR(5));
+             break;
+
+             case 'F':
+             attron(COLOR_PAIR(5));
+             mvprintw(j, i, "\u2620");
+             attroff(COLOR_PAIR(5));
+             break;
+
+             case 'G':
+
+             int m = (rand() % 3);
+             if(m == 0){
+                mvprintw(j, i, "\u27B3");
+             }
+             if(m == 1){ 
+                mvprintw(j, i, "\u2692");
+             }
+             if( m == 2){
+                mvprintw(j, i, "\u2694");
+             }
+             break;
+
+             default:
+             mvprintw(j, i, "%c", map[0][j][i]);
+             break; // Adding break for default case, just to be safe
+        }
+
 
                 if(map[0][j][i] == '+' || map[0][j][i] == '#'){
 
@@ -2984,6 +3760,11 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
             }
         }
 
+    WINDOW *messsageWin = newwin(3, 60, 43, 120);
+    //box(messsageWin, 0, 0);
+    refresh();
+    wrefresh(messsageWin);
+
     mvprintw(y - 1, 0, "Name: %s", name);
     mvprintw(y - 1, strlen(name) + 7, "Difficulty: level%d", difficulty);
     mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  "), "Character :");
@@ -3010,14 +3791,162 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     attroff(COLOR_PAIR(5));
 
+    attron(COLOR_PAIR(3));
+
+    mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+    attroff(COLOR_PAIR(3));
+
 
     refresh();
 
     char move;
 
+    int f = 0;
+
     while(1){
 
+            attron(COLOR_PAIR(5));
+            
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+
+        if((*food) == 100){
+
+            (*health)++;
+
+            if((*health) > 100)
+                (*health) = 100;
+
+            attron(COLOR_PAIR(5));
+            
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+
+
+        }
+
+        if((*food) <= 0){
+
+            (*food) = 0;
+
+            if(f == 3)
+            (*health)--;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+        }
+
+        f++;
+
+        if(f == 4){
+
+            (*food)--;
+
+            f = 0;
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+
+        }
+        mvwprintw(messsageWin, 1, 1, "                              ");
+        
+        if(*health == 0){
+
+            goto end;
+        }
+        //sleep(1);
         move = getch();
+
+        if((move == 'w' && map[0][person_j + 1][person_i] == '#' && c == '+') ||
+                (move == 'd' && map[0][person_j][person_i - 1] == '#' && c == '+') ||
+                    (move == 'x' && map[0][person_j - 1][person_i] == '#' && c == '+') ||
+                        (move == 'a' && map[0][person_j][person_i + 1] == '#' && c == '+') || 
+                            (move == 'e' && map[0][person_j + 1][person_i] == '#' && c == '+') ||
+                                (move == 'q' && map[0][person_j + 1][person_i] == '#' && c == '+') ||
+                                    (move == 'z' && map[0][person_j - 1][person_i] == '#' && c == '+') ||
+                                        (move == 'c' && map[0][person_j - 1][person_i] == '#' && c == '+') ||
+                                            (move == 'e' && map[0][person_j][person_i - 1] == '#' && c == '+') ||
+                                                (move == 'q' && map[0][person_j][person_i + 1] == '#' && c == '+') ||
+                                                    (move == 'z' && map[0][person_j][person_i + 1] == '#' && c == '+') ||
+                                                        (move == 'c' && map[0][person_j][person_i - 1] == '#' && c == '+')) {
+
+            
+            mvwprintw(messsageWin,1, 1, "Enter a room!!!...");
+
+        }
+
+        if((move == 'w' && map[0][person_j + 1][person_i] == '.' && c == '+') ||
+                (move == 'd' && map[0][person_j][person_i - 1] == '.' && c == '+') ||
+                    (move == 'x' && map[0][person_j - 1][person_i] == '.' && c == '+') ||
+                        (move == 'a' && map[0][person_j][person_i + 1] == '.' && c == '+') ){
+
+                            mvwprintw(messsageWin,1, 1, "Exit a room!!!...");
+                        }
+
+        if((move == 'q' && map[0][person_j - 1][person_i - 1] == 'g') ||
+                (move == 'w' && map[0][person_j - 1][person_i] == 'g') ||
+                    (move == 'e' && map[0][person_j - 1][person_i + 1] == 'g') ||
+                        (move == 'd' && map[0][person_j][person_i + 1] == 'g') ||
+                            (move == 'c' && map[0][person_j + 1][person_i + 1] == 'g') ||
+                                (move == 'x' && map[0][person_j + 1][person_i] == 'g') ||
+                                    (move == 'z' && map[0][person_j + 1][person_i - 1] == 'g') ||
+                                        (move == 'a' && map[0][person_j][person_i - 1] == 'g')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got gold.");
+
+                }
+
+        if((move == 'q' && map[0][person_j - 1][person_i - 1] == 'b') ||
+                (move == 'w' && map[0][person_j - 1][person_i] == 'b') ||
+                    (move == 'e' && map[0][person_j - 1][person_i + 1] == 'b') ||
+                        (move == 'd' && map[0][person_j][person_i + 1] == 'b') ||
+                            (move == 'c' && map[0][person_j + 1][person_i + 1] == 'b') ||
+                                (move == 'x' && map[0][person_j + 1][person_i] == 'b') ||
+                                    (move == 'z' && map[0][person_j + 1][person_i - 1] == 'b') ||
+                                        (move == 'a' && map[0][person_j][person_i - 1] == 'b')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got black gold.");
+
+                }
+            wrefresh(messsageWin);
+
+        if(move == 'p'){
+
+            if(check_music == 1){
+
+                Mix_PauseMusic();
+
+                check_music = 0;
+
+            } else{
+
+                Mix_PlayMusic(musiccc, -1);
+
+                check_music = 1;
+            }
+
+            continue;
+        }
 
         if((move == 'q' && map[0][person_j - 1][person_i - 1] == 'S') ||
                 (move == 'w' && map[0][person_j - 1][person_i] == 'S') ||
@@ -3154,7 +4083,75 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[0][person_j - 1][person_i] == 'T'){
+            if(map[0][person_j - 1][person_i] == 'T' || map[0][person_j - 1][person_i] == 'H'){
+
+                if(map[0][person_j - 1][person_i] == 'T')
+                (*health)--;
+                if(map[0][person_j - 1][person_i] == 'H')
+                (*health) = 100;
+            
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                if(map[0][person_j - 1][person_i] == 'T'){
+                c = 't';
+                } 
+                if(map[0][person_j - 1][person_i] == 'H'){
+                    c = '.';
+                }
+
+                map[0][person_j - 1][person_i] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j - 1, person_i, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j--;
+
+
+                attron(COLOR_PAIR(5));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+                attroff(COLOR_PAIR(5));
+
+                continue;
+
+            }
+
+            if(map[0][person_j - 1][person_i] == 'f' || map[0][person_j - 1][person_i] == 'F'){
+
+                if(map[0][person_j - 1][person_i] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[0][person_j - 1][person_i] == 'F')
+                (*food) = 100;
 
                 map[0][person_j][person_i] = c;
 
@@ -3172,7 +4169,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                c = 't';
+                c = '.';
 
                 map[0][person_j - 1][person_i] = character;
 
@@ -3182,21 +4179,19 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 person_j--;
 
-                (*health)--;
 
-                attron(COLOR_PAIR(5));
+                attron(COLOR_PAIR(3));
 
-                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
 
-                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
 
-                attroff(COLOR_PAIR(5));
+                attroff(COLOR_PAIR(3));
 
                 continue;
 
-
-
             }
+
         }
 
 
@@ -3317,7 +4312,13 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[0][person_j + 1][person_i] == 'T'){
+            if(map[0][person_j + 1][person_i] == 'T' || map[0][person_j + 1][person_i] == 'H'){
+
+                if(map[0][person_j + 1][person_i] == 'T')
+                (*health)--;
+                if(map[0][person_j + 1][person_i] == 'H')
+                (*health) = 100;
+
 
                 map[0][person_j][person_i] = c;
 
@@ -3335,7 +4336,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
+                if(map[0][person_j + 1][person_i] == 'T')
                 c = 't';
+                if(map[0][person_j + 1][person_i] == 'H')
+                c = '.';
 
                 map[0][person_j + 1][person_i] = character;
 
@@ -3345,7 +4349,6 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 person_j++;
 
-                (*health)--;
 
                 attron(COLOR_PAIR(5));
 
@@ -3358,6 +4361,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
 
 
+
+            }
+
+            if(map[0][person_j + 1][person_i] == 'f' || map[0][person_j + 1][person_i] == 'F'){
+
+                if(map[0][person_j + 1][person_i] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[0][person_j + 1][person_i] == 'F')
+                (*food) = 100;
+
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j + 1][person_i] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j + 1, person_i, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
 
             }
         }
@@ -3479,7 +4541,12 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[0][person_j][person_i - 1] == 'T'){
+            if(map[0][person_j][person_i - 1] == 'T' || map[0][person_j][person_i - 1] == 'H'){
+
+                if(map[0][person_j][person_i - 1] == 'T')
+                (*health)--;
+                if(map[0][person_j][person_i - 1] == 'H')
+                (*health) = 100;
 
                 map[0][person_j][person_i] = c;
 
@@ -3497,7 +4564,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
+                if(map[0][person_j][person_i - 1] == 'T')
                 c = 't';
+                if(map[0][person_j][person_i - 1] == 'H')
+                c = '.';
 
                 map[0][person_j][person_i - 1] = character;
 
@@ -3507,7 +4577,6 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 person_i--;
 
-                (*health)--;
 
                 attron(COLOR_PAIR(5));
 
@@ -3520,6 +4589,64 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
 
 
+
+            }
+
+            if(map[0][person_j][person_i - 1] == 'f' || map[0][person_j][person_i - 1] == 'F'){
+                
+                if(map[0][person_j][person_i - 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[0][person_j][person_i - 1] == 'F')
+                (*food) = 100;
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j][person_i - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j, person_i - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i--;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
 
             }
         }
@@ -3641,7 +4768,12 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[0][person_j][person_i + 1] == 'T'){
+            if(map[0][person_j][person_i + 1] == 'T' || map[0][person_j][person_i + 1] == 'H'){
+
+                if(map[0][person_j][person_i + 1] == 'T')
+                (*health)--;
+                if(map[0][person_j][person_i + 1] == 'H')
+                (*health) = 100;
 
                 map[0][person_j][person_i] = c;
 
@@ -3659,7 +4791,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
+                if(map[0][person_j][person_i + 1] == 'T')
                 c = 't';
+                if(map[0][person_j][person_i + 1] == 'H')
+                c = '.';
 
                 map[0][person_j][person_i + 1] = character;
 
@@ -3669,7 +4804,6 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 person_i++;
 
-                (*health)--;
 
                 attron(COLOR_PAIR(5));
 
@@ -3684,6 +4818,67 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
             }
+
+            if(map[0][person_j][person_i + 1] == 'f' || map[0][person_j][person_i + 1] == 'F'){
+                
+                if(map[0][person_j][person_i + 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                }
+
+                if(map[0][person_j][person_i + 1] == 'F')
+                (*food) = 100;
+
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j][person_i + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j, person_i + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
+
         }
 
         if(move == 'e'){
@@ -3846,6 +5041,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[0][person_j - 1][person_i + 1] == 'f'){
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j +- 1][person_i + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j - 1, person_i + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i++;
+                person_j--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'c'){
@@ -4007,6 +5255,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
                 continue;
+            }
+
+            if(map[0][person_j + 1][person_i + 1] == 'f'){
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j + 1][person_i + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j + 1, person_i + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i++;
+                person_j++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
             
 
@@ -4180,6 +5481,61 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
             }
+
+            if(map[0][person_j + 1][person_i - 1] == 'f'){
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j + 1][person_i - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j + 1, person_i - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i--;
+                person_j++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
+
+
         }
 
         if(move == 'q'){
@@ -4346,12 +5702,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
             }
+
+            if(map[0][person_j - 1][person_i - 1] == 'f'){
+
+                map[0][person_j][person_i] = c;
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j, person_i, "%c", c);
+
+                if(map[0][person_j][person_i] == '+' || map[0][person_j][person_i] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[0][person_j - 1][person_i - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j - 1, person_i - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i--;
+                person_j--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 's' && is_guest == 0){
         
         //save_matrix_to_file(map, name,difficulty, color, character, *gold);
-        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
+        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, *food, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
         
 
         return 0;
@@ -4400,11 +5809,46 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-            if(map[1][j][i] == 'T'){
-                mvprintw(j, i,".");
-            }else{
-            mvprintw(j, i,"%c",  map[1][j][i]);
-            }
+switch(map[1][j][i]) {
+    case 'T':
+        mvprintw(j, i, ".");
+        break;
+
+    case 'S':
+        mvprintw(j, i, "#");
+        break;
+    case 'k':
+        attron(COLOR_PAIR(1));
+        mvprintw(j, i, "\u25B2");
+        attroff(COLOR_PAIR(1));
+        break; // Missing break statement added here
+
+    case 'g':
+    mvprintw(j, i, "$");
+    break;
+
+    case 'f':
+        attron(COLOR_PAIR(3));
+     mvprintw(j, i, "%c", map[1][j][i]);
+        attroff(COLOR_PAIR(3));
+    break;
+
+    case 'H':
+    attron(COLOR_PAIR(5));
+    mvprintw(j, i, "\u2600");
+    attroff(COLOR_PAIR(5));
+    break;
+
+    case 'F':
+    attron(COLOR_PAIR(5));
+    mvprintw(j, i, "\u2620");
+    attroff(COLOR_PAIR(5));
+    break;
+
+    default:
+        mvprintw(j, i, "%c", map[1][j][i]);
+        break; // Adding break for default case, just to be safe
+}
 
                 if(map[1][j][i] == '-' || map[1][j][i] == '|'){
 
@@ -4461,9 +5905,153 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
     if(is_guest == 1 || newGame == 1)
     c = '.';
 
+    int P = 0;
+
     while(1){
 
+        if(P > 0){
+
+            P--;
+            if(c == 't')
+            (*health) ++;
+
+        }
+
+        if((*food) == 100){
+
+            (*health)++;
+
+                        if((*health) > 100)
+                (*health) = 100;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+
+        }
+
+        if((*food) <= 0){
+
+            (*food) = 0;
+            
+            if(f == 3)
+            (*health)--;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+        }
+
+        f++;
+
+        if(f == 4){
+
+            (*food)--;
+
+            f = 0;
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+
+        }
+
+        mvwprintw(messsageWin, 1, 1, "                              ");
+
+        if(*health == 0){
+
+            goto end;
+        }
+
         move = getch();
+
+        if((move == 'w' && map[1][person_j_1 + 1][person_i_1] == '#' && c == '+') ||
+                (move == 'd' && map[1][person_j_1][person_i_1 - 1] == '#' && c == '+') ||
+                    (move == 'x' && map[1][person_j_1 - 1][person_i_1] == '#' && c == '+') ||
+                        (move == 'a' && map[1][person_j_1][person_i_1 + 1] == '#' && c == '+') || 
+                            (move == 'e' && map[1][person_j_1 + 1][person_i_1] == '#' && c == '+') ||
+                                (move == 'q' && map[1][person_j_1 + 1][person_i_1] == '#' && c == '+') ||
+                                    (move == 'z' && map[1][person_j_1 - 1][person_i_1] == '#' && c == '+') ||
+                                        (move == 'c' && map[1][person_j_1 - 1][person_i_1] == '#' && c == '+') ||
+                                            (move == 'e' && map[1][person_j_1][person_i_1 - 1] == '#' && c == '+') ||
+                                                (move == 'q' && map[1][person_j_1][person_i_1 + 1] == '#' && c == '+') ||
+                                                    (move == 'z' && map[1][person_j_1][person_i_1 + 1] == '#' && c == '+') ||
+                                                        (move == 'c' && map[1][person_j_1][person_i_1 - 1] == '#' && c == '+')) {
+
+            
+            mvwprintw(messsageWin,1, 1, "Enter a room!!!...");
+
+        }
+
+        if((move == 'w' && map[1][person_j_1 + 1][person_i_1] == '.' && c == '+') ||
+                (move == 'd' && map[1][person_j_1][person_i_1 - 1] == '.' && c == '+') ||
+                    (move == 'x' && map[1][person_j_1 - 1][person_i_1] == '.' && c == '+') ||
+                        (move == 'a' && map[1][person_j_1][person_i_1 + 1] == '.' && c == '+') ){
+
+                            mvwprintw(messsageWin,1, 1, "Exit a room!!!...");
+                        }
+
+        if((move == 'q' && map[1][person_j_1 - 1][person_i_1 - 1] == 'g') ||
+                (move == 'w' && map[1][person_j_1 - 1][person_i_1] == 'g') ||
+                    (move == 'e' && map[1][person_j_1 - 1][person_i_1 + 1] == 'g') ||
+                        (move == 'd' && map[1][person_j_1][person_i_1 + 1] == 'g') ||
+                            (move == 'c' && map[1][person_j_1 + 1][person_i_1 + 1] == 'g') ||
+                                (move == 'x' && map[1][person_j_1 + 1][person_i_1] == 'g') ||
+                                    (move == 'z' && map[1][person_j_1 + 1][person_i_1 - 1] == 'g') ||
+                                        (move == 'a' && map[1][person_j_1][person_i_1 - 1] == 'g')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got gold.");
+
+                }
+
+        if((move == 'q' && map[1][person_j_1 - 1][person_i_1 - 1] == 'b') ||
+                (move == 'w' && map[1][person_j_1 - 1][person_i_1] == 'b') ||
+                    (move == 'e' && map[1][person_j_1 - 1][person_i_1 + 1] == 'b') ||
+                        (move == 'd' && map[1][person_j_1][person_i_1 + 1] == 'b') ||
+                            (move == 'c' && map[1][person_j_1 + 1][person_i_1 + 1] == 'b') ||
+                                (move == 'x' && map[1][person_j_1 + 1][person_i_1] == 'b') ||
+                                    (move == 'z' && map[1][person_j_1 + 1][person_i_1 - 1] == 'b') ||
+                                        (move == 'a' && map[1][person_j_1][person_i_1 - 1] == 'b')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got black gold.");
+
+                }
+                
+            wrefresh(messsageWin);
+
+
+        if(move == 'p'){
+
+            if(check_music == 1){
+
+                Mix_PauseMusic();
+
+                check_music = 0;
+
+            } else{
+
+                Mix_PlayMusic(musiccc, -1);
+
+                check_music = 1;
+            }
+
+            continue;
+        }
 
         if((move == 'q' && map[1][person_j_1 - 1][person_i_1 - 1] == 'S') ||
                 (move == 'w' && map[1][person_j_1 - 1][person_i_1] == 'S') ||
@@ -4479,6 +6067,21 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                     map[1][person_j_1][person_i_1] = c;
 
                     break;
+
+                }
+
+        if((move == 'q' && map[1][person_j_1 - 1][person_i_1 - 1] == 's') ||
+                (move == 'w' && map[1][person_j_1 - 1][person_i_1] == 's') ||
+                    (move == 'e' && map[1][person_j_1 - 1][person_i_1 + 1] == 's') ||
+                        (move == 'd' && map[1][person_j_1][person_i_1 + 1] == 's') ||
+                            (move == 'c' && map[1][person_j_1 + 1][person_i_1 + 1] == 's') ||
+                                (move == 'x' && map[1][person_j_1 + 1][person_i_1] == 's') ||
+                                    (move == 'z' && map[1][person_j_1 + 1][person_i_1 - 1] == 's') ||
+                                        (move == 'a' && map[1][person_j_1][person_i_1 - 1] == 's')
+
+                ){
+
+                   goto floor0;
 
                 }
 
@@ -4601,7 +6204,13 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[1][person_j_1 - 1][person_i_1] == 'T'){
+            if(map[1][person_j_1 - 1][person_i_1] == 'T' || map[1][person_j_1 - 1][person_i_1] == 'H'){
+
+                if(map[1][person_j_1 - 1][person_i_1] == 'T')
+                (*health)--;
+                if(map[1][person_j_1 - 1][person_i_1] == 'H')
+                (*health) = 100;
+
 
                 map[1][person_j_1][person_i_1] = c;
 
@@ -4619,7 +6228,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
+                if(map[1][person_j_1 - 1][person_i_1] == 'T')
                 c = 't';
+                if(map[1][person_j_1 - 1][person_i_1] == 'H')
+                c = '.';
 
                 map[1][person_j_1 - 1][person_i_1] = character;
 
@@ -4629,7 +6241,6 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 person_j_1--;
 
-                (*health)--;
 
                 attron(COLOR_PAIR(5));
 
@@ -4643,6 +6254,64 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
 
 
+
+            }
+
+            if(map[1][person_j_1 - 1][person_i_1] == 'f' || map[1][person_j_1 - 1][person_i_1] == 'F'){
+
+                if(map[1][person_j_1 - 1][person_i_1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[1][person_j_1 - 1][person_i_1] == 'F')
+                (*food) = 100;
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 - 1][person_i_1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 - 1, person_i_1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_1--;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
 
             }
         }
@@ -4683,13 +6352,15 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[1][person_j_1 + 1][person_i_1] == 'g' || map[1][person_j_1 + 1][person_i_1] == 'b' || map[1][person_j_1 + 1][person_i_1] == 'T'){
+            if(map[1][person_j_1 + 1][person_i_1] == 'g' || map[1][person_j_1 + 1][person_i_1] == 'b' || map[1][person_j_1 + 1][person_i_1] == 'T' || map[1][person_j_1 + 1][person_i_1] == 'H'){
                 if(map[1][person_j_1 + 1][person_i_1] == 'g')
                 (*gold)++;
                  if(map[1][person_j_1 + 1][person_i_1] == 'b')
                 (*blackGold)++;
                 if(map[1][person_j_1 + 1][person_i_1] == 'T')
                 (*health)--;
+                if(map[1][person_j_1 + 1][person_i_1] == 'H')
+                (*health) = 100;
 
                 map[1][person_j_1][person_i_1] = c;
 
@@ -4711,6 +6382,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 c = '.';
                 } else if(map[1][person_j_1 + 1][person_i_1] == 'T'){
                     c = 't';
+                } else if(map[1][person_j_1 + 1][person_i_1] == 'H'){
+                    c = '.';
                 }
 
                 map[1][person_j_1 + 1][person_i_1] = character;
@@ -4743,6 +6416,66 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 refresh();
 
                 continue;
+            }
+
+            if(map[1][person_j_1 + 1][person_i_1] == 'f' || map[1][person_j_1 + 1][person_i_1] == 'F'){
+
+                if(map[1][person_j_1 + 1][person_i_1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                }
+
+                if(map[1][person_j_1 + 1][person_i_1] == 'F')
+                (*food) = 100;
+
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 + 1][person_i_1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 + 1, person_i_1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_1++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
             
         }
@@ -4782,7 +6515,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[1][person_j_1][person_i_1 - 1] == 'g' || map[1][person_j_1][person_i_1 - 1] == 'b' || map[1][person_j_1][person_i_1 - 1] == 'T'){
+            if(map[1][person_j_1][person_i_1 - 1] == 'g' || map[1][person_j_1][person_i_1 - 1] == 'b' || map[1][person_j_1][person_i_1 - 1] == 'T' || map[1][person_j_1][person_i_1 - 1] == 'H' || map[1][person_j_1][person_i_1 - 1] == 'P'){
 
                 if(map[1][person_j_1][person_i_1 - 1] == 'g')
                 (*gold)++;
@@ -4790,6 +6523,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[1][person_j_1][person_i_1 - 1] == 'T')
                 (*health)--;
+                if(map[1][person_j_1][person_i_1 - 1] == 'H')
+                (*health) = 100;
+                if(map[1][person_j_1][person_i_1 - 1] == 'P')
+                P = 20;
                 map[1][person_j_1][person_i_1] = c;
 
                 if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
@@ -4805,11 +6542,14 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                     attroff(COLOR_PAIR(7));
 
                 }
-                if(map[1][person_j_1][person_i_1 - 1] == 'g' || map[1][person_j_1][person_i_1 - 1] == 'b'){
+                if(map[1][person_j_1][person_i_1 - 1] == 'g' || map[1][person_j_1][person_i_1 - 1] == 'b' || map[1][person_j_1][person_i_1 - 1] == 'P'){
                 c = '.';
                 }
                 if(map[1][person_j_1][person_i_1 - 1] == 'T'){
                 c = 't';
+                }
+                if(map[1][person_j_1][person_i_1 - 1] == 'H'){
+                c = '.';
                 }
 
                 map[1][person_j_1][person_i_1 - 1] = character;
@@ -4841,6 +6581,64 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 refresh();
 
                 continue;
+            }
+
+            if(map[1][person_j_1][person_i_1 - 1] == 'f' || map[1][person_j_1][person_i_1 - 1] == 'F'){
+
+                if(map[1][person_j_1][person_i_1 - 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[1][person_j_1][person_i_1 - 1] == 'F')
+                (*food) = 100;
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1][person_i_1 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1, person_i_1 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1--;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -4879,13 +6677,16 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[1][person_j_1][person_i_1 + 1] == 'g' || map[1][person_j_1][person_i_1 + 1] == 'b' || map[1][person_j_1][person_i_1 + 1] == 'T'){
+            if(map[1][person_j_1][person_i_1 + 1] == 'g' || map[1][person_j_1][person_i_1 + 1] == 'b' || map[1][person_j_1][person_i_1 + 1] == 'T' || map[1][person_j_1][person_i_1 + 1] == 'H'){
                 if(map[1][person_j_1][person_i_1 + 1] == 'g')
                 (*gold)++;
                 if(map[1][person_j_1][person_i_1 + 1] == 'b')
                 (*blackGold)++;
                 if(map[1][person_j_1][person_i_1 + 1] == 'T')
                 (*health)--;
+                if(map[1][person_j_1][person_i_1 + 1] == 'H')
+                (*health) = 100;
+
                 map[1][person_j_1][person_i_1] = c;
 
                 if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
@@ -4902,7 +6703,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[1][person_j_1][person_i_1 + 1] == 'g' || map[1][person_j_1][person_i_1 + 1] == 'b'){
+                if(map[1][person_j_1][person_i_1 + 1] == 'g' || map[1][person_j_1][person_i_1 + 1] == 'b' || map[1][person_j_1][person_i_1 + 1] == 'H'){
                 c = '.';
                 }
                 if(map[1][person_j_1][person_i_1 + 1] == 'T'){
@@ -4937,6 +6738,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 refresh();
 
                 continue;
+            }
+
+            if(map[1][person_j_1][person_i_1 + 1] == 'f' || map[1][person_j_1][person_i_1 + 1] == 'F'){
+                
+                if(map[1][person_j_1][person_i_1 + 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[1][person_j_1][person_i_1 + 1] == 'F')
+                (*food) = 100;
+
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1][person_i_1 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1, person_i_1 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5039,6 +6899,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[1][person_j_1 - 1][person_i_1 + 1] == 'f'){
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 - 1][person_i_1 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 - 1, person_i_1 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1++;
+                person_j_1--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'c'){
@@ -5138,6 +7051,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 refresh();
 
                 continue;
+            }
+
+            if(map[1][person_j_1 + 1][person_i_1 + 1] == 'f'){
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 + 1][person_i_1 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 + 1, person_i_1 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1++;
+                person_j_1++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5239,6 +7205,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 refresh();
                 continue;
             }
+
+            if(map[1][person_j_1 + 1][person_i_1 - 1] == 'f'){
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 + 1][person_i_1 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 + 1, person_i_1 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1--;
+                person_j_1++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'q'){
@@ -5339,6 +7358,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
+            if(map[1][person_j_1 - 1][person_i_1 - 1] == 'f'){
+
+                map[1][person_j_1][person_i_1] = c;
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_1, person_i_1, "%c", c);
+
+                if(map[1][person_j_1][person_i_1] == '+' || map[1][person_j_1][person_i_1] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[1][person_j_1 - 1][person_i_1 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_1 - 1, person_i_1 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_1--;
+                person_j_1--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
+
             
         }
 
@@ -5346,7 +7418,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
         
         //save_matrix_to_file(map, name,difficulty, color, character, *gold);
         //save_matrix_to_file(map, name,difficulty, color, charact, c, *gold, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
-        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
+        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, *food, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
 
 
         return 0;
@@ -5393,12 +7465,41 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                     
                 }
 
-            if(map[2][j][i] == 'T'){
-                mvprintw(j, i,".");
-            }else{
-            mvprintw(j, i,"%c",  map[2][j][i]);
-            }
+switch(map[2][j][i]) {
+    case 'T':
+        mvprintw(j, i, ".");
+        break;
 
+    case 'S':
+        mvprintw(j, i, "#");
+        break;
+    case 'k':
+        attron(COLOR_PAIR(1));
+        mvprintw(j, i, "\u25B2");
+        attroff(COLOR_PAIR(1));
+        break; // Missing break statement added here
+
+    case 'g':
+    mvprintw(j, i, "$");
+    break;
+
+    case 'f':
+                attron(COLOR_PAIR(3));
+             mvprintw(j, i, "%c", map[2][j][i]);
+                attroff(COLOR_PAIR(3));
+             break;
+             
+    case 'H':
+    attron(COLOR_PAIR(5));
+    mvprintw(j, i, "\u2600");
+    attroff(COLOR_PAIR(5));
+    break;
+
+
+    default:
+        mvprintw(j, i, "%c", map[2][j][i]);
+        break; // Adding break for default case, just to be safe
+}
                 if(map[2][j][i] == '-' || map[2][j][i] == '|'){
 
                     attroff(COLOR_PAIR(6));
@@ -5455,7 +7556,140 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     while(1){
 
+        if((*food) == 100){
+
+            (*health)++;
+
+                        if((*health) > 100)
+                (*health) = 100;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+
+        }
+
+        if((*food) <= 0){
+
+            (*food) = 0;
+
+            if(f == 3)
+            (*health)--;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+        }
+
+        f++;
+
+        if(f == 6){
+
+            (*food)--;
+
+            f = 0;
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+
+        }
+
+        mvwprintw(messsageWin, 1, 1, "                              ");
+
+        if(*health == 0){
+
+            goto end;
+        }
+
         move = getch();
+
+
+        if((move == 'w' && map[2][person_j_2 + 1][person_i_2] == '#' && c == '+') ||
+                (move == 'd' && map[2][person_j_2][person_i_2 - 1] == '#' && c == '+') ||
+                    (move == 'x' && map[2][person_j_2 - 1][person_i_2] == '#' && c == '+') ||
+                        (move == 'a' && map[2][person_j_2][person_i_2 + 1] == '#' && c == '+') || 
+                            (move == 'e' && map[2][person_j_2 + 1][person_i_2] == '#' && c == '+') ||
+                                (move == 'q' && map[2][person_j_2 + 1][person_i_2] == '#' && c == '+') ||
+                                    (move == 'z' && map[2][person_j_2 - 1][person_i_2] == '#' && c == '+') ||
+                                        (move == 'c' && map[2][person_j_2 - 1][person_i_2] == '#' && c == '+') ||
+                                            (move == 'e' && map[2][person_j_2][person_i_2 - 1] == '#' && c == '+') ||
+                                                (move == 'q' && map[2][person_j_2][person_i_2 + 1] == '#' && c == '+') ||
+                                                    (move == 'z' && map[2][person_j_2][person_i_2 + 1] == '#' && c == '+') ||
+                                                        (move == 'c' && map[2][person_j_2][person_i_2 - 1] == '#' && c == '+')) {
+
+            
+            mvwprintw(messsageWin,1, 1, "Enter a room!!!...");
+
+        }
+
+        if((move == 'w' && map[2][person_j_2 + 1][person_i_2] == '.' && c == '+') ||
+                (move == 'd' && map[2][person_j_2][person_i_2 - 1] == '.' && c == '+') ||
+                    (move == 'x' && map[2][person_j_2 - 1][person_i_2] == '.' && c == '+') ||
+                        (move == 'a' && map[2][person_j_2][person_i_2 + 1] == '.' && c == '+') ){
+
+                            mvwprintw(messsageWin,1, 1, "Exit a room!!!...");
+                        }
+
+
+        if((move == 'q' && map[2][person_j_2 - 1][person_i_2 - 1] == 'g') ||
+                (move == 'w' && map[2][person_j_2 - 1][person_i_2] == 'g') ||
+                    (move == 'e' && map[2][person_j_2 - 1][person_i_2 + 1] == 'g') ||
+                        (move == 'd' && map[2][person_j_2][person_i_2 + 1] == 'g') ||
+                            (move == 'c' && map[2][person_j_2 + 1][person_i_2 + 1] == 'g') ||
+                                (move == 'x' && map[2][person_j_2 + 1][person_i_2] == 'g') ||
+                                    (move == 'z' && map[2][person_j_2 + 1][person_i_2 - 1] == 'g') ||
+                                        (move == 'a' && map[2][person_j_2][person_i_2 - 1] == 'g')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got gold.");
+
+                }
+
+        if((move == 'q' && map[2][person_j_2 - 1][person_i_2 - 1] == 'b') ||
+                (move == 'w' && map[2][person_j_2 - 1][person_i_2] == 'b') ||
+                    (move == 'e' && map[2][person_j_2 - 1][person_i_2 + 1] == 'b') ||
+                        (move == 'd' && map[2][person_j_2][person_i_2 + 1] == 'b') ||
+                            (move == 'c' && map[2][person_j_2 + 1][person_i_2 + 1] == 'b') ||
+                                (move == 'x' && map[2][person_j_2 + 1][person_i_2] == 'b') ||
+                                    (move == 'z' && map[2][person_j_2 + 1][person_i_2 - 1] == 'b') ||
+                                        (move == 'a' && map[2][person_j_2][person_i_2 - 1] == 'b')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got black gold.");
+
+                }
+
+            wrefresh(messsageWin);
+
+        if(move == 'p'){
+
+            if(check_music == 1){
+
+                Mix_PauseMusic();
+
+                check_music = 0;
+
+            } else{
+
+                Mix_PlayMusic(musiccc, -1);
+
+                check_music = 1;
+            }
+
+            continue;
+        }
 
         if((move == 'q' && map[2][person_j_2 - 1][person_i_2 - 1] == 'S') ||
                 (move == 'w' && map[2][person_j_2 - 1][person_i_2] == 'S') ||
@@ -5471,6 +7705,20 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                     map[2][person_j_2][person_i_2] = c;
 
                     break;
+
+                }
+
+        if((move == 'q' && map[2][person_j_2 - 1][person_i_2 - 1] == 's') ||
+                (move == 'w' && map[2][person_j_2 - 1][person_i_2] == 's') ||
+                    (move == 'e' && map[2][person_j_2 - 1][person_i_2 + 1] == 's') ||
+                        (move == 'd' && map[2][person_j_2][person_i_2 + 1] == 's') ||
+                            (move == 'c' && map[2][person_j_2 + 1][person_i_2 + 1] == 's') ||
+                                (move == 'x' && map[2][person_j_2 + 1][person_i_2] == 's') ||
+                                    (move == 'z' && map[2][person_j_2 + 1][person_i_2 - 1] == 's') ||
+                                        (move == 'a' && map[2][person_j_2][person_i_2 - 1] == 's')
+
+                ){
+                    goto floor1;
 
                 }
 
@@ -5510,7 +7758,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[2][person_j_2 - 1][person_i_2] == 'g' || map[2][person_j_2 - 1][person_i_2] == 'b' || map[2][person_j_2 - 1][person_i_2] == 'T'){
+            if(map[2][person_j_2 - 1][person_i_2] == 'g' || map[2][person_j_2 - 1][person_i_2] == 'b' || map[2][person_j_2 - 1][person_i_2] == 'T' || map[2][person_j_2 - 1][person_i_2] == 'H'){
 
                 if(map[2][person_j_2 - 1][person_i_2] == 'g')
                 (*gold)++;
@@ -5518,6 +7766,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[2][person_j_2 - 1][person_i_2] == 'T')
                 (*health)--;
+                if(map[2][person_j_2 - 1][person_i_2] == 'H')
+                (*health) = 100;
 
                 map[2][person_j_2][person_i_2] = c;
 
@@ -5535,7 +7785,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[2][person_j_2 - 1][person_i_2] == 'g' || map[2][person_j_2 - 1][person_i_2] == 'b')
+                if(map[2][person_j_2 - 1][person_i_2] == 'g' || map[2][person_j_2 - 1][person_i_2] == 'b' || map[2][person_j_2 - 1][person_i_2] == 'H')
                 c = '.';
                 if(map[2][person_j_2 - 1][person_i_2] == 'T')
                 c = 't';
@@ -5570,6 +7820,58 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
                 continue;
+            }
+
+            if(map[2][person_j_2 - 1][person_i_2] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 - 1][person_i_2] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 - 1, person_i_2, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_2--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5609,7 +7911,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[2][person_j_2 + 1][person_i_2] == 'g' || map[2][person_j_2 + 1][person_i_2] == 'b' || map[2][person_j_2 + 1][person_i_2] == 'T'){
+            if(map[2][person_j_2 + 1][person_i_2] == 'g' || map[2][person_j_2 + 1][person_i_2] == 'b' || map[2][person_j_2 + 1][person_i_2] == 'T' || map[2][person_j_2 + 1][person_i_2] == 'H'){
 
                 if(map[2][person_j_2 + 1][person_i_2] == 'g')
                 (*gold)++;
@@ -5617,6 +7919,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[2][person_j_2 + 1][person_i_2] == 'T')
                 (*health)--;
+                if(map[2][person_j_2 + 1][person_i_2] == 'H')
+                (*health) = 100;
 
                 map[2][person_j_2][person_i_2] = c;
 
@@ -5634,7 +7938,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[2][person_j_2 + 1][person_i_2] == 'g' || map[2][person_j_2 + 1][person_i_2] == 'b')
+                if(map[2][person_j_2 + 1][person_i_2] == 'g' || map[2][person_j_2 + 1][person_i_2] == 'b' || map[2][person_j_2 + 1][person_i_2] == 'H')
                 c = '.';
                 if(map[2][person_j_2 + 1][person_i_2] == 'T')
                 c = 't';
@@ -5668,6 +7972,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
                 continue;
+            }
+
+            
+            if(map[2][person_j_2 + 1][person_i_2] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 + 1][person_i_2] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 + 1, person_i_2, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_2++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5706,7 +8063,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[2][person_j_2][person_i_2 - 1] == 'g' || map[2][person_j_2][person_i_2 - 1] == 'b' || map[2][person_j_2][person_i_2 - 1] == 'T'){
+            if(map[2][person_j_2][person_i_2 - 1] == 'g' || map[2][person_j_2][person_i_2 - 1] == 'b' || map[2][person_j_2][person_i_2 - 1] == 'T' || map[2][person_j_2][person_i_2 - 1] == 'H'){
 
                 if(map[2][person_j_2][person_i_2 - 1] == 'g')
                 (*gold)++;
@@ -5714,6 +8071,10 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[2][person_j_2][person_i_2 - 1] == 'T')
                 (*health)--;
+                if(map[2][person_j_2][person_i_2 - 1] == 'H')
+                (*health) = 100;
+
+
                 map[2][person_j_2][person_i_2] = c;
 
                 if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
@@ -5730,7 +8091,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[2][person_j_2][person_i_2 - 1] == 'g' || map[2][person_j_2][person_i_2 - 1] == 'b')
+                if(map[2][person_j_2][person_i_2 - 1] == 'g' || map[2][person_j_2][person_i_2 - 1] == 'b' || map[2][person_j_2][person_i_2 - 1] == 'H')
                 c = '.';
                 if(map[2][person_j_2][person_i_2 - 1] == 'T')
                 c = 't';
@@ -5763,6 +8124,58 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[2][person_j_2][person_i_2 - 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2][person_i_2 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2, person_i_2 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5802,7 +8215,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[2][person_j_2][person_i_2 + 1] == 'g' || map[2][person_j_2][person_i_2 + 1] == 'b' || map[2][person_j_2][person_i_2 + 1] == 'T'){
+            if(map[2][person_j_2][person_i_2 + 1] == 'g' || map[2][person_j_2][person_i_2 + 1] == 'b' || map[2][person_j_2][person_i_2 + 1] == 'T' || map[2][person_j_2][person_i_2 + 1] == 'H'){
 
                 if(map[2][person_j_2][person_i_2 + 1] == 'g')
                 (*gold)++;
@@ -5810,6 +8223,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[2][person_j_2][person_i_2 + 1] == 'T')
                 (*health)--;
+                if(map[2][person_j_2][person_i_2 + 1] == 'H')
+                (*health) = 100;
 
                 map[2][person_j_2][person_i_2] = c;
 
@@ -5827,7 +8242,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[2][person_j_2][person_i_2 + 1] == 'g' || map[2][person_j_2][person_i_2 + 1] == 'b')
+                if(map[2][person_j_2][person_i_2 + 1] == 'g' || map[2][person_j_2][person_i_2 + 1] == 'b' || map[2][person_j_2][person_i_2 + 1] == 'H')
                 c = '.';
                 if(map[2][person_j_2][person_i_2 + 1] == 'T')
                 c = 't';
@@ -5860,6 +8275,58 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[2][person_j_2][person_i_2 + 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2][person_i_2 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2, person_i_2 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -5960,6 +8427,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[2][person_j_2 - 1][person_i_2 + 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 - 1][person_i_2 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 - 1, person_i_2 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2++;
+                person_j_2--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'c'){
@@ -6057,6 +8577,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[2][person_j_2 + 1][person_i_2 + 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 + 1][person_i_2 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 + 1, person_i_2 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2++;
+                person_j_2++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -6157,6 +8730,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[2][person_j_2 + 1][person_i_2 - 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 + 1][person_i_2 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 + 1, person_i_2 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2--;
+                person_j_2++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'q'){
@@ -6256,12 +8882,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[2][person_j_2 - 1][person_i_2 - 1] == 'f'){
+
+                map[2][person_j_2][person_i_2] = c;
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_2, person_i_2, "%c", c);
+
+                if(map[2][person_j_2][person_i_2] == '+' || map[2][person_j_2][person_i_2] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[2][person_j_2 - 1][person_i_2 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_2 - 1, person_i_2 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_2--;
+                person_j_2--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 's' && is_guest == 0){
         
         //save_matrix_to_file(map, name,difficulty, color, character, *gold);
-        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
+        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, *food, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
 
 
         return 0;
@@ -6276,6 +8955,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
     clear();
 
     floor3:
+
+    int m = 0;
 
     map[3][person_j_3][person_i_3] = character;
 
@@ -6309,11 +8990,47 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-            if(map[3][j][i] == 'T'){
-                mvprintw(j, i,".");
-            }else{
-            mvprintw(j, i,"%c",  map[3][j][i]);
-            }
+switch(map[3][j][i]) {
+    case 'T':
+        mvprintw(j, i, ".");
+        break;
+
+    case 'S':
+        mvprintw(j, i, "#");
+        break;
+    case 'k':
+        attron(COLOR_PAIR(1));
+        mvprintw(j, i, "\u25B2");
+        attroff(COLOR_PAIR(1));
+        break; // Missing break statement added here
+
+    case 'g':
+    mvprintw(j, i, "$");
+    break;
+
+    case 'f':
+                attron(COLOR_PAIR(3));
+             mvprintw(j, i, "%c", map[3][j][i]);
+                attroff(COLOR_PAIR(3));
+             break;
+
+    case 'H':
+    attron(COLOR_PAIR(5));
+    mvprintw(j, i, "\u2600");
+    attroff(COLOR_PAIR(5));
+    break;
+
+    case 'F':
+    attron(COLOR_PAIR(5));
+    mvprintw(j, i, "\u2620");
+    attroff(COLOR_PAIR(5));
+    break;
+
+
+    default:
+        mvprintw(j, i, "%c", map[3][j][i]);
+        break; // Adding break for default case, just to be safe
+}
 
                 if(map[3][j][i] == '-' || map[3][j][i] == '|'){
 
@@ -6371,7 +9088,178 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
     while(1){
 
+        if((*food) == 100){
+
+            (*health)++; 
+
+                if((*health) > 100)
+                (*health) = 100;
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+
+        }
+
+        if((*food) <= 0){
+
+            (*food) = 0;
+
+            if(f == 3)
+            (*health)--;
+
+            attron(COLOR_PAIR(5));
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health:    ");
+
+            mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    "), "health: %d", *health);
+
+            attroff(COLOR_PAIR(5));
+        }
+
+        f++;
+
+        if(f == 6){
+
+            (*food)--;
+
+            f = 0;
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+
+        }
+
+        mvwprintw(messsageWin, 1, 1, "                              ");
+
+        if(person_j_3 == 23 && person_i_3 == 127 && map[3][23][128] == '+'){
+
+            map[3][23][128] = '|';
+
+            attron(COLOR_PAIR(6));
+            mvprintw(23, 128, "|");
+            attroff(COLOR_PAIR(6));
+
+            refresh();
+
+            m++;
+
+            Mix_PauseMusic();
+            Mix_PlayMusic(khmusic, -1);
+
+        }
+
+        if(*health == 0)
+          goto end;
         move = getch();
+
+        if((move == 'w' && map[3][person_j_3 + 1][person_i_3] == '#' && c == '+') ||
+                (move == 'd' && map[3][person_j_3][person_i_3 - 1] == '#' && c == '+') ||
+                    (move == 'x' && map[3][person_j_3 - 1][person_i_3] == '#' && c == '+') ||
+                        (move == 'a' && map[3][person_j_3][person_i_3 + 1] == '#' && c == '+') || 
+                            (move == 'e' && map[3][person_j_3 + 1][person_i_3] == '#' && c == '+') ||
+                                (move == 'q' && map[3][person_j_3 + 1][person_i_3] == '#' && c == '+') ||
+                                    (move == 'z' && map[3][person_j_3 - 1][person_i_3] == '#' && c == '+') ||
+                                        (move == 'c' && map[3][person_j_3 - 1][person_i_3] == '#' && c == '+') ||
+                                            (move == 'e' && map[3][person_j_3][person_i_3 - 1] == '#' && c == '+') ||
+                                                (move == 'q' && map[3][person_j_3][person_i_3 + 1] == '#' && c == '+') ||
+                                                    (move == 'z' && map[3][person_j_3][person_i_3 + 1] == '#' && c == '+') ||
+                                                        (move == 'c' && map[3][person_j_3][person_i_3 - 1] == '#' && c == '+')) {
+
+            
+            mvwprintw(messsageWin,1, 1, "Enter a room!!!...");
+
+        }
+
+        if((move == 'w' && map[3][person_j_3 + 1][person_i_3] == '.' && c == '+') ||
+                (move == 'd' && map[3][person_j_3][person_i_3 - 1] == '.' && c == '+') ||
+                    (move == 'x' && map[3][person_j_3 - 1][person_i_3] == '.' && c == '+') ||
+                        (move == 'a' && map[3][person_j_3][person_i_3 + 1] == '.' && c == '+') ){
+
+                            mvwprintw(messsageWin,1, 1, "Exit a room!!!...");
+                        }
+
+        if((move == 'q' && map[3][person_j_3 - 1][person_i_3 - 1] == 'g') ||
+                (move == 'w' && map[3][person_j_3 - 1][person_i_3] == 'g') ||
+                    (move == 'e' && map[3][person_j_3 - 1][person_i_3 + 1] == 'g') ||
+                        (move == 'd' && map[3][person_j_3][person_i_3 + 1] == 'g') ||
+                            (move == 'c' && map[3][person_j_3 + 1][person_i_3 + 1] == 'g') ||
+                                (move == 'x' && map[3][person_j_3 + 1][person_i_3] == 'g') ||
+                                    (move == 'z' && map[3][person_j_3 + 1][person_i_3 - 1] == 'g') ||
+                                        (move == 'a' && map[3][person_j_3][person_i_3 - 1] == 'g')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got gold.");
+
+                }
+
+        if((move == 'q' && map[3][person_j_3 - 1][person_i_3 - 1] == 'b') ||
+                (move == 'w' && map[3][person_j_3 - 1][person_i_3] == 'b') ||
+                    (move == 'e' && map[3][person_j_3 - 1][person_i_3 + 1] == 'b') ||
+                        (move == 'd' && map[3][person_j_3][person_i_3 + 1] == 'b') ||
+                            (move == 'c' && map[3][person_j_3 + 1][person_i_3 + 1] == 'b') ||
+                                (move == 'x' && map[3][person_j_3 + 1][person_i_3] == 'b') ||
+                                    (move == 'z' && map[3][person_j_3 + 1][person_i_3 - 1] == 'b') ||
+                                        (move == 'a' && map[3][person_j_3][person_i_3 - 1] == 'b')
+
+                ){
+
+                    mvwprintw(messsageWin,1, 1, "Good, you got black gold.");
+
+                }
+
+            wrefresh(messsageWin);
+
+        if((move == 'q' && map[3][person_j_3 - 1][person_i_3 - 1] == 's') ||
+                (move == 'w' && map[3][person_j_3 - 1][person_i_3] == 's') ||
+                    (move == 'e' && map[3][person_j_3 - 1][person_i_3 + 1] == 's') ||
+                        (move == 'd' && map[3][person_j_3][person_i_3 + 1] == 's') ||
+                            (move == 'c' && map[3][person_j_3 + 1][person_i_3 + 1] == 's') ||
+                                (move == 'x' && map[3][person_j_3 + 1][person_i_3] == 's') ||
+                                    (move == 'z' && map[3][person_j_3 + 1][person_i_3 - 1] == 's') ||
+                                        (move == 'a' && map[3][person_j_3][person_i_3 - 1] == 's')
+
+                ){
+
+                        goto floor2;
+
+                }
+
+        if(m > 0){
+
+            m++;
+        }
+
+        if(m == 15){
+
+            goto end;
+        }
+
+        if(move == 'p'){
+
+            if(check_music == 1){
+
+                Mix_PauseMusic();
+
+                check_music = 0;
+
+            } else{
+
+                Mix_PlayMusic(musiccc, -1);
+
+                check_music = 1;
+            }
+
+            continue;
+        }
 
         if(move == 'w'){
 
@@ -6409,7 +9297,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[3][person_j_3 - 1][person_i_3] == 'g' || map[3][person_j_3 - 1][person_i_3] == 'b' || map[3][person_j_3 - 1][person_i_3] == 'T'){
+            if(map[3][person_j_3 - 1][person_i_3] == 'g' || map[3][person_j_3 - 1][person_i_3] == 'b' || map[3][person_j_3 - 1][person_i_3] == 'T' || map[3][person_j_3 - 1][person_i_3] == 'H'){
 
                 if(map[3][person_j_3 - 1][person_i_3] == 'g')
                 (*gold)++;
@@ -6417,6 +9305,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[3][person_j_3 - 1][person_i_3] == 'T')
                 (*health)--;
+                if(map[3][person_j_3 - 1][person_i_3] == 'H')
+                (*health) = 100;
 
                 map[3][person_j_3][person_i_3] = c;
 
@@ -6434,7 +9324,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[3][person_j_3 - 1][person_i_3] == 'g' || map[3][person_j_3 - 1][person_i_3] == 'b')
+                if(map[3][person_j_3 - 1][person_i_3] == 'g' || map[3][person_j_3 - 1][person_i_3] == 'b' || map[3][person_j_3 - 1][person_i_3] == 'H')
                 c = '.';
                 if(map[3][person_j_3 - 1][person_i_3] == 'T')
                 c = 't';
@@ -6466,6 +9356,64 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[3][person_j_3 - 1][person_i_3] == 'f' || map[3][person_j_3 - 1][person_i_3] == 'F'){
+
+                if(map[3][person_j_3 - 1][person_i_3] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[3][person_j_3 - 1][person_i_3] == 'F')
+                (*food) = 100;
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 - 1][person_i_3] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 - 1, person_i_3, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_3--;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -6567,6 +9515,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[3][person_j_3 - 1][person_i_3 + 1] == 'f'){
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 - 1][person_i_3 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 - 1, person_i_3 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3++;
+                person_j_3--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'd'){
@@ -6606,7 +9607,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
             }
 
-            if(map[3][person_j_3][person_i_3 + 1] == 'g' || map[3][person_j_3][person_i_3 + 1] == 'b' || map[3][person_j_3][person_i_3 + 1] == 'T'){
+            if(map[3][person_j_3][person_i_3 + 1] == 'g' || map[3][person_j_3][person_i_3 + 1] == 'b' || map[3][person_j_3][person_i_3 + 1] == 'T' || map[3][person_j_3][person_i_3 + 1] == 'H'){
 
                 if(map[3][person_j_3][person_i_3 + 1] == 'g')
                 (*gold)++;
@@ -6614,6 +9615,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[3][person_j_3][person_i_3 + 1] == 'T')
                 (*health)--;
+                if(map[3][person_j_3][person_i_3 + 1] == 'H')
+                (*health) = 100;
 
                 map[3][person_j_3][person_i_3] = c;
 
@@ -6631,7 +9634,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[3][person_j_3][person_i_3 + 1] == 'g' || map[3][person_j_3][person_i_3 + 1] == 'b')
+                if(map[3][person_j_3][person_i_3 + 1] == 'g' || map[3][person_j_3][person_i_3 + 1] == 'b' || map[3][person_j_3][person_i_3 + 1] == 'H')
                 c = '.';
                 if(map[3][person_j_3][person_i_3 + 1] == 'T')
                 c = 't';
@@ -6664,6 +9667,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[3][person_j_3][person_i_3 + 1] == 'f' || map[3][person_j_3][person_i_3 + 1] == 'F'){
+                
+                if(map[3][person_j_3][person_i_3 + 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[3][person_j_3][person_i_3 + 1] == 'F')
+                (*food) = 100;
+
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3][person_i_3 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3, person_i_3 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -6764,6 +9826,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[3][person_j_3 + 1][person_i_3 + 1] == 'f'){
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 + 1][person_i_3 + 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 + 1, person_i_3 + 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3++;
+                person_j_3++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'x'){
@@ -6802,7 +9917,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[3][person_j_3 + 1][person_i_3] == 'g' || map[3][person_j_3 + 1][person_i_3] == 'b' || map[3][person_j_3 + 1][person_i_3] == 'T'){
+            if(map[3][person_j_3 + 1][person_i_3] == 'g' || map[3][person_j_3 + 1][person_i_3] == 'b' || map[3][person_j_3 + 1][person_i_3] == 'T' || map[3][person_j_3 + 1][person_i_3] == 'H'){
 
                 if(map[3][person_j_3 + 1][person_i_3] == 'g')
                 (*gold)++;
@@ -6810,6 +9925,8 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 (*blackGold)++;
                 if(map[3][person_j_3 + 1][person_i_3] == 'T')
                 (*health)--;
+                if(map[3][person_j_3 + 1][person_i_3] == 'H')
+                (*health) = 100;
 
                 map[3][person_j_3][person_i_3] = c;
 
@@ -6827,7 +9944,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[3][person_j_3 + 1][person_i_3] == 'g' || map[3][person_j_3 + 1][person_i_3] == 'b')
+                if(map[3][person_j_3 + 1][person_i_3] == 'g' || map[3][person_j_3 + 1][person_i_3] == 'b' || map[3][person_j_3 + 1][person_i_3] == 'H')
                 c = '.';
                 if(map[3][person_j_3 + 1][person_i_3] == 'T')
                 c = 't';          
@@ -6860,6 +9977,64 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[3][person_j_3 + 1][person_i_3] == 'f' || map[3][person_j_3 + 1][person_i_3] == 'F'){
+                
+                if(map[3][person_j_3 + 1][person_i_3] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[3][person_j_3 + 1][person_i_3] == 'F')
+                (*food) = 100;
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 + 1][person_i_3] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 + 1, person_i_3, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_j_3++;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -6960,6 +10135,59 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[3][person_j_3 + 1][person_i_3 - 1] == 'f'){
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 + 1][person_i_3 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 + 1, person_i_3 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3--;
+                person_j_3++;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 'a'){
@@ -6998,14 +10226,16 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 continue;
             }
 
-            if(map[3][person_j_3][person_i_3 - 1] == 'g' || map[3][person_j_3][person_i_3 - 1] == 'b' || map[3][person_j_3][person_i_3 - 1] == 'T'){
+            if(map[3][person_j_3][person_i_3 - 1] == 'g' || map[3][person_j_3][person_i_3 - 1] == 'b' || map[3][person_j_3][person_i_3 - 1] == 'T' || map[3][person_j_3][person_i_3 - 1] == 'H'){
 
                 if(map[3][person_j_3][person_i_3 - 1] == 'g')
                 (*gold)++;
                 if(map[3][person_j_3][person_i_3 - 1] == 'b')
                 (*blackGold)++;
                 if(map[3][person_j_3][person_i_3 - 1] == 'T')
-                (health)--;
+                (*health)--;
+                if(map[3][person_j_3][person_i_3 - 1] == 'H')
+                (*health) = 100;
 
                 map[3][person_j_3][person_i_3] = c;
 
@@ -7023,7 +10253,7 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 }
 
-                if(map[3][person_j_3][person_i_3 - 1] == 'g' || map[3][person_j_3][person_i_3 - 1] == 'b')
+                if(map[3][person_j_3][person_i_3 - 1] == 'g' || map[3][person_j_3][person_i_3 - 1] == 'b' || map[3][person_j_3][person_i_3 - 1] == 'H')
                 c = '.';
                 if(map[3][person_j_3][person_i_3 - 1] == 'T')
                 c = 't';
@@ -7056,6 +10286,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
                 attroff(COLOR_PAIR(5));
 
                 continue;
+            }
+
+            if(map[3][person_j_3][person_i_3 - 1] == 'f' || map[3][person_j_3][person_i_3 - 1] == 'F'){
+
+                if(map[3][person_j_3][person_i_3 - 1] == 'f'){
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+                }
+
+                if(map[3][person_j_3][person_i_3 - 1] == 'F')
+                (*food) = 100;
+
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3][person_i_3 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3, person_i_3 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3--;
+
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
             }
         }
 
@@ -7156,12 +10445,65 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
                 continue;
             }
+
+            if(map[3][person_j_3 - 1][person_i_3 - 1] == 'f'){
+
+                map[3][person_j_3][person_i_3] = c;
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attron(COLOR_PAIR(7));
+
+                }
+
+                mvprintw(person_j_3, person_i_3, "%c", c);
+
+                if(map[3][person_j_3][person_i_3] == '+' || map[3][person_j_3][person_i_3] == '#'){
+
+                    attroff(COLOR_PAIR(7));
+
+                }
+
+                c = '.';
+
+                map[3][person_j_3 - 1][person_i_3 - 1] = character;
+
+                attron(COLOR_PAIR(color));
+                mvprintw(person_j_3 - 1, person_i_3 - 1, "%c", character);
+                attroff(COLOR_PAIR(color));
+
+                person_i_3--;
+                person_j_3--;
+
+                int ran = (rand() % 15) - 2 ;
+
+                if(ran == 0)
+                ran = 1;
+
+                (*food) += ran;
+
+                if(*food > 100){
+
+                    (*food) = 100;
+                }
+
+                attron(COLOR_PAIR(3));
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food:    ");
+
+                mvprintw(y - 1, strlen(name) + 7 + strlen("Difficulty: level  ") + strlen("character: ") + 13 + strlen("black gold:    ") + strlen("health:     "), "food: %d", *food);
+
+                attroff(COLOR_PAIR(3));
+
+                continue;
+
+            }
         }
 
         if(move == 's' && is_guest == 0){
         
         //save_matrix_to_file(map, name,difficulty, color, character, *gold);
-        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
+        save_matrix_to_file(map, name,difficulty, color, charact, *gold, c, *blackGold, *health, music, *food, person_i, person_j, person_i_1, person_j_1, person_i_2, person_j_2, person_i_3, person_j_3);
 
         return 0;
      
@@ -7169,17 +10511,228 @@ int game(int is_guest, int newGame, int difficulty, int music, int charact, int 
 
 
     }
+
+    end:
+
+    if(*health == 0){
+
+        clear();
+        refresh();
+
+        int height, width;
+        getmaxyx(stdscr, height, width);
+
+        char m2[100] = {"Oops, you lost!,"};
+        char m1[100] = {"Sorry, Not lucky this time :("};
+        char m3[100] = {"Hope to see you later"};
+
+         char m4[100] = {"+++++++"};
+         char m5[100] = {"|     |"};
+         char m6[100] = {"|     |"};
+         char m7[100] = {"|R.I.P|"};
+         char m8[100] = {"|     |"};
+         char m9[100] = {"|     |"};
+        char m10[100] = {"|     |"};
+        char m11[100] = {"-------"};
+        char m12[100] = {"\\\\\\\\\\\\\\\\"};
+
+
+        attron(A_REVERSE);
+
+        for(int i = 0; i < strlen(m2); i++){
+
+        mvprintw(height/2 - 2, (width - strlen(m2)) / 2 + i, "%c", m2[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        for(int i = 0; i < strlen(m1); i++){
+
+        mvprintw(height/2, (width - strlen(m1)) / 2 + i, "%c", m1[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        for(int i = 0; i < strlen(m3); i++){
+
+        mvprintw(height/2 + 2, (width - strlen(m2)) / 2 + i, "%c", m2[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        attroff(A_REVERSE);
+
+        attron(COLOR_PAIR(6));
+
+                mvprintw(height/2 - 20 + 4, (width - strlen(m4)) / 2, "%s", m4);
+                mvprintw(height/2 - 20 + 5, (width - strlen(m5)) / 2, "%s", m5);
+                mvprintw(height/2 - 20 + 6, (width - strlen(m6)) / 2, "%s", m6);
+                mvprintw(height/2 - 20 + 7, (width - strlen(m7)) / 2, "%s", m7);
+                mvprintw(height/2 - 20 + 8, (width - strlen(m8)) / 2, "%s", m8);
+                mvprintw(height/2 - 20 + 9, (width - strlen(m9)) / 2, "%s", m9);
+                mvprintw(height/2 - 20 + 10, (width - strlen(m10)) / 2, "%s", m10);
+                mvprintw(height/2 - 20 + 11, (width - strlen(m11)) / 2, "%s", m11);
+                mvprintw(height/2 - 20 + 12, (width - strlen(m11)) / 2, "%s", m12);
+
+        attroff(COLOR_PAIR(6));
+        refresh();
+
+    } else{
+
+        clear();
+        refresh();
+        int sYear = *year, sMonth = *month, sDay = *day;
+
+        if(is_guest == 0){
+        char path[100] = "/home/ahmadreza/ROGUE/saving/";
+
+        strcat(path, name);
+        strcat(path, "/date.txt");
+
+               
+
+                FILE *date = fopen(path, "r");
+                if(date == NULL){
+
+                    date = fopen(path, "w");
+                fprintf(date, "%d\n", *year);
+                fprintf(date, "%d\n", *month);
+                fprintf(date, "%d\n", *day);
+
+                sYear = *year;
+                sMonth = *month;
+                sDay = *day;
+
+
+                fclose(date);
+                } else{
+
+                    date = fopen(path, "r");
+
+
+        fscanf(date, "%d", &sYear);
+        fscanf(date, "%d", &sMonth);
+        fscanf(date, "%d", &sDay);
+
+        fclose(date);
+ 
+
+                }
+            
+        }
+        int height, width;
+        getmaxyx(stdscr, height, width);
+        int score = *gold + 2 * (*blackGold) + (*health) + 10;
+
+        char m2[1000] = {"Congratulations "};
+        char m1[1000] = {"You managed to finish the game."};
+        char m3[1000] = {"Hope to see you later"};
+
+        strcat(m2, name);
+
+        char m4[1000] = {"Your score : "};
+
+        
+
+        attron(A_REVERSE);
+
+        for(int i = 0; i < strlen(m2); i++){
+
+        mvprintw(height/2 - 2, (width - strlen(m2)) / 2 + i, "%c", m2[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        for(int i = 0; i < strlen(m1); i++){
+
+        mvprintw(height/2, (width - strlen(m1)) / 2 + i, "%c", m1[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        for(int i = 0; i < strlen(m3); i++){
+
+        mvprintw(height/2 + 2, (width - strlen(m2)) / 2 + i, "%c", m2[i]);
+
+        refresh();
+
+            usleep(50000);
+        }
+
+        attroff(A_REVERSE);
+
+        mvprintw(height/2 + 4, (width - strlen(m4)) / 2, "%s %d", m4, score);
+
+        refresh();
+
+    int xp = 1; // Initialize xp to a default value
+    if(is_guest == 0){
+        char pathh[1000] = {"/home/ahmadreza/ROGUE/saving/"};
+
+    strcat(pathh, name);
+    strcat(pathh, "/xp.txt");
+
+    // Open the file in read mode
+    FILE *f = fopen(pathh, "r");
+
+    if (f) {
+        // If the file exists, read the current value of xp and increment it
+        fscanf(f, "%d", &xp);
+        xp++;
+        fclose(f);
+
+        // Open the file in write mode and write the new value of xp
+        f = fopen(pathh, "w");
+        fprintf(f, "%d\n", xp);
+        fclose(f);
+    } else {
+        // If the file does not exist, initialize xp and write it to the new file
+        f = fopen(pathh, "w");
+        fprintf(f, "%d\n", xp);
+        fclose(f);
+    }
+
+    }
+
+
+
+
+    saveScoreboard(name, score, xp, sYear, sMonth, sDay);
+
+    
+    }
+
+    getch();
     
 }
 
 
 
 int main() {
+
+    time_t t = time(NULL);
+    struct tm *local_time = localtime(&t);
+
+    int year = local_time->tm_year + 1900; // Year since 1900
+    int month = local_time->tm_mon + 1;    // Month (0-11, so add 1)
+    int day = local_time->tm_mday;         // Day of the month
+
+    setlocale(LC_ALL,"");
     initscr();
     start_color();
     noecho();
     curs_set(FALSE);
-
+    
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_YELLOW, COLOR_BLACK);
     init_pair(3, COLOR_GREEN, COLOR_BLACK);
@@ -7187,7 +10740,6 @@ int main() {
     init_pair(5, COLOR_CYAN, COLOR_BLACK);
     init_pair(6, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(7, COLOR_BLUE, COLOR_BLACK);
-
 
     char name[50];
     int is_guest = 0;
@@ -7212,24 +10764,26 @@ int main() {
 
     FILE *savedGame;
 
-    settingMenu(&savedGame, name, is_guest, &newGame, &difficulty, &character, &color, &music);
+    settingMenu(&savedGame, name, is_guest, &newGame, &difficulty, &character, &color, &music, year, month, day);
 
     char map[z][y][x];
 
-    int s, w, gold, blackGold, health;
+    int s, w, gold, blackGold, health, food;
 
     if(is_guest == 1){
 
-        int s = game(is_guest, newGame, difficulty, music, character, color, name, &gold, &blackGold, &health);
+        int s = game(is_guest, newGame, difficulty, music, character, color, name, &gold, &blackGold, &health, &food, &year, &month, &day);
     }
 
     if(is_guest == 0){
 
-        int s = game(is_guest, newGame, difficulty, music, character, color, name, &gold, &blackGold, &health);
+        int s = game(is_guest, newGame, difficulty, music, character, color, name, &gold, &blackGold, &health, &food, &year, &month, &day);
     }
 
     getch();
     //getch();
+    //git push origin main
+
     endwin();  // End ncurses mode
     return 0;
 }
